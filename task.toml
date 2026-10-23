@@ -1,0 +1,37 @@
+schema_version = "2.0"
+artifacts = ["/app/submission.json"]
+
+[task]
+name = "clinical-tp53-adjudication"
+description = "Adjudicate functional evidence for 11 TP53 variants from a fixed evidence packet, separating yeast-assay classification from overall functional phenotype and keeping clinical pathogenicity out of scope."
+
+[metadata]
+author_name = "IbrahimSK2020"
+author_organization = "Independent"
+difficulty_explanation = "The task requires exact median-threshold classification, faithful transcription of source annotations, and separate evidence-based phenotype adjudication. Promoter heterogeneity, splice-context concerns, and conflicting evidence must be considered without treating hotspot status as proof. The 11-case pilot remains small and hotspot-heavy, so difficulty and limitations must not be overstated."
+solution_explanation = "A valid solution contains exactly one schema-conformant case per input case, independently computes the median of the eight yeast promoter activities, applies the stated threshold boundaries, reproduces supplied NCI annotations, cites only declared evidence IDs, documents concise evidence-linked rationales, and sets clinical_pathogenicity to not_assessed. Overall phenotype calls follow the provisional reference key and are not clinical diagnoses."
+verification_explanation = "The verifier independently recomputes medians, checks exact case coverage, objective labels, source annotations, evidence IDs, confidence fields, rationale structure, and the clinical-scope restriction. Schema validation is performed when the bundled verifier supports it. Automated checks cannot prove the semantic correctness of free-text biological reasoning or validate an unreconciled source key."
+category = "Science"
+subcategory = "Biology"
+tags = ["bioinformatics", "molecular-biology", "variant-interpretation", "evidence-adjudication"]
+expert_time_estimate_hours = 6
+
+[verifier]
+timeout_sec = 300.0
+environment_mode = "separate"
+
+[verifier.environment]
+docker_image = "python:3.12-slim"
+network_mode = "no-network"
+
+[agent]
+timeout_sec = 28800.0
+
+[environment]
+build_timeout_sec = 600.0
+docker_image = "python:3.12-slim"
+cpus = 1
+memory_mb = 2048
+storage_mb = 10240
+gpus = 0
+allow_internet = false

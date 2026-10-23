@@ -1,0 +1,14 @@
+{
+  "artifact": "clinical-tp53-variant-adjudication-v1.1.0-solver-only.zip",
+  "reported_sha256": "94fac499e84613850a874aafd803b75996553d61624110945a293748896960e5",
+  "reported_member_count": 8,
+  "reported_result": "PASS",
+  "reported_leakage_findings": 0,
+  "negative_control": {
+    "artifact": "clinical-tp53-variant-adjudication-v1.1.0-developer.zip",
+    "reported_sha256": "a5141f67002a6ab4e86fe8d0d5e75dd59f25a54f9afadbb99043db754f0f2454",
+    "reported_result": "FAIL_EXPECTED",
+    "reported_findings": 170
+  },
+  "provenance_note": "These are captured values from the v1.1.0 validation report. The uploaded developer ZIP in the staging repository has a different byte size than the final-build capture, so archive byte identity has not been independently confirmed in this branch."
+}

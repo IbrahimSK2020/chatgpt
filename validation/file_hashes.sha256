@@ -1,0 +1,2 @@
+# Full source-file hashes are included inside the developer bundle's validation/file_hashes.sha256.
+# This wrapper-level manifest intentionally does not claim SHA-256 values for remote archive bytes that were not downloaded and re-hashed in this runtime.
