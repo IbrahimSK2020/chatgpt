@@ -1,0 +1,226 @@
+# Captured validation run — v1.1.0
+
+Host OS         : Ubuntu 24.04.4 LTS
+Python          : Python 3.12.3
+Executable      : /usr/bin/python3
+Working dir     : /home/claude/build/tp53
+Capture time    : 2026-10-23T12:24:51Z (UTC)
+Third-party deps: none (standard library only; jsonschema confirmed ABSENT)
+
+Every block below is verbatim captured stdout/stderr with its real exit code.
+==================================================================
+
+## [0] Confirm no third-party dependency is available
+$ python3 -c "import jsonschema"
+ModuleNotFoundError: No module named 'jsonschema'
+exit=1
+
+## [1] Oracle regeneration
+$ python3 oracle/oracle.py --output oracle/reference_submission.json
+Wrote 11 reference cases to oracle/reference_submission.json
+exit=0
+
+## [2] Oracle determinism (two subprocess runs, byte comparison)
+588e09d1fb2fe00b72b51378cdab34487009f8c126f906c3313ccd9924725cc0  /tmp/o1.json
+588e09d1fb2fe00b72b51378cdab34487009f8c126f906c3313ccd9924725cc0  /tmp/o2.json
+BYTE-IDENTICAL: yes
+
+## [3] Oracle fails loudly rather than substituting values
+$ python3 oracle/oracle.py --input /tmp/bad1.json
+ORACLE_ERROR: TP53-001/WAF1: negative activity value -5.0
+exit=2
+$ python3 oracle/oracle.py --input /tmp/bad2.json
+ORACLE_ERROR: TP53-001: expected exactly the eight named promoters; missing=['BAX'], unexpected=[]
+exit=2
+$ python3 oracle/oracle.py --input /tmp/bad3.json
+ORACLE_ERROR: TP53-001: standardized panel must be the yeast assay, found cell_system='human_saos2'
+exit=2
+$ python3 oracle/oracle.py --key /tmp/badkey.json
+ORACLE_ERROR: TP53-001: required_evidence_ids reference unknown sources ['SRC-FABRICATED']
+exit=2
+
+## [4] Schema validation (schemas are executed, not merely shipped)
+$ python3 verifier/schema_check.py data/task_input.json schemas/task_input.schema.json
+VALID
+exit=0
+$ python3 verifier/schema_check.py oracle/reference_submission.json schemas/submission.schema.json
+VALID
+exit=0
+
+## [5] Verifier on the reference submission
+$ python3 verifier/verify.py oracle/reference_submission.json --report validation/reference_verifier_report.json
+exit=0
+status                : PASS
+score                 : 100.0
+raw_points_score      : 100.0
+coverage_valid        : True
+points_earned         : 1100
+points_possible       : 1100
+case_count_expected   : 11
+case_count_submitted  : 11
+schema_validated      : True
+schema_error_count    : 0
+errors                : 0
+limitations declared  : 5
+
+## [6] Verifier independence from the Oracle (enforced, not asserted)
+$ python3 -c "import sys; sys.path.insert(0,"verifier"); import verify; print("oracle" in sys.modules)"
+oracle imported: False
+exit=0
+
+## [7] Adversarial submissions — every row except the baseline must FAIL
+$ python3 scripts/adversarial_report.py
+adversarial case                                  status    score     raw  gated  first error field
+---------------------------------------------------------------------------------------------------
+baseline reference (expect PASS)                  PASS      100.0   100.0      0  -
+malformed: cases not a list                       FAIL        0.0     0.0      0  json_schema
+missing case                                      FAIL        0.0   90.91      0  json_schema
+duplicate case                                    FAIL        0.0   100.0      0  json_schema
+extra unknown case                                FAIL        0.0   100.0      0  json_schema
+incorrect median                                  FAIL      98.64   98.64      0  median_pct_wt
+threshold-boundary error (69.0 called preserved)  FAIL      97.27   97.27      0  protein_assay_label
+swapped overall label                             FAIL      97.27   97.27      0  overall_functional_phenotype
+overall collapsed into panel label (splice case)  FAIL      94.55   94.55      0  overall_functional_phenotype
+invented evidence identifier                      FAIL      90.91   90.91      1  evidence_ids
+incorrect source annotation                       FAIL      90.91   90.91      1  source_annotations
+clinical pathogenicity asserted (top level)       FAIL        0.0     0.0     11  json_schema
+clinical pathogenicity asserted (one case)        FAIL      90.91   90.91      1  json_schema
+inadequate rationale                              FAIL      99.55   99.55      0  json_schema
+identifier-stuffed rationale                      FAIL      99.55   99.55      0  rationale
+extra ACMG field smuggled in                      FAIL      100.0   100.0      0  json_schema
+
+15 of 15 adversarial submissions were rejected (baseline excluded).
+
+Limitations this battery does NOT cover:
+  - prose that cites the right identifiers but reasons incorrectly
+  - a label that matches the key while the key itself is wrong
+  - any error originating upstream in the unreconciled source data (D-04)
+exit=0
+
+## [8] Malformed JSON must not crash the runner
+$ python3 verifier/verify.py /tmp/mal.json
+exit=1
+{
+  "status": "FAIL",
+  "score": 0.0,
+  "max_score": 100,
+  "errors": [
+    {
+      "case_id": "__root__",
+      "field": "runtime",
+      "error": "Expecting property name enclosed in double quotes: line 1 column 3 (char 2)"
+    }
+
+## [9] Full test suite
+$ python3 -m unittest discover -s tests
+exit=0
+----------------------------------------------------------------------
+Ran 129 tests in 1.205s
+
+OK
+
+Per-module results:
+  test_data_integrity      Ran 19 tests in 0.003s OK 
+  test_oracle              Ran 44 tests in 0.174s OK 
+  test_verifier            Ran 54 tests in 0.144s OK 
+  test_packaging           Ran 12 tests in 0.828s OK 
+
+## [10] Packaging (deterministic) and leakage audit
+$ python3 scripts/build_solver_bundle.py --outdir ../dist
+clinical-tp53-variant-adjudication-v1.1.0-solver-only.zip  bytes=8649  sha256=2dfcaf71b96f0b1650fcf1d140ce85cfe4283c87713faec5fd52fa1043daa400
+clinical-tp53-variant-adjudication-v1.1.0-developer.zip  bytes=82619  sha256=1ada06ec0f12916d9b209e0a8bd24c6aebd02e4a48b29d904feacbdcbb4c4e18
+exit=0
+
+$ python3 scripts/audit_solver_bundle.py ../dist/clinical-tp53-variant-adjudication-v1.1.0-solver-only.zip
+archive : clinical-tp53-variant-adjudication-v1.1.0-solver-only.zip
+bytes   : 8649
+sha256  : 2dfcaf71b96f0b1650fcf1d140ce85cfe4283c87713faec5fd52fa1043daa400
+members : 8
+  - clinical-tp53-variant-adjudication-v1.1.0-solver/LICENSE_AND_ATTRIBUTION.md
+  - clinical-tp53-variant-adjudication-v1.1.0-solver/README_solver.md
+  - clinical-tp53-variant-adjudication-v1.1.0-solver/data/source_manifest.csv
+  - clinical-tp53-variant-adjudication-v1.1.0-solver/data/task_input.json
+  - clinical-tp53-variant-adjudication-v1.1.0-solver/docs/submission_template.json
+  - clinical-tp53-variant-adjudication-v1.1.0-solver/instruction.md
+  - clinical-tp53-variant-adjudication-v1.1.0-solver/schemas/submission.schema.json
+  - clinical-tp53-variant-adjudication-v1.1.0-solver/schemas/task_input.schema.json
+
+RESULT: PASS - no answer-key leakage detected, ZIP integrity verified
+exit=0
+
+Negative control — the developer archive DOES contain the key, so the audit MUST fail on it:
+exit=1
+archive : clinical-tp53-variant-adjudication-v1.1.0-developer.zip
+bytes   : 82619
+sha256  : 1ada06ec0f12916d9b209e0a8bd24c6aebd02e4a48b29d904feacbdcbb4c4e18
+members : 42
+RESULT: FAIL (147 findings)
+
+## [11] Official-source reachability (evidence for the provenance gate)
+$ getent hosts tp53.cancer.gov
+exit=2  (non-zero = DNS resolution FAILED)
+$ curl -sS --max-time 15 -o /dev/null -w "http=%{http_code}" https://tp53.cancer.gov/get_tp53data
+curl: (6) Could not resolve host: tp53.cancer.gov
+http=000
+exit=6
+$ getent hosts www.ncbi.nlm.nih.gov
+exit=2  (non-zero = DNS resolution FAILED)
+
+RESULT: bulk-source reconciliation CANNOT be completed in this environment.
+No official file bytes were obtained, therefore NO SHA-256 checksum is recorded.
+See validation/source_access_blocker.md and validation/bulk_reconciliation.csv.
+
+## [12] Bulk reconciliation gate state
+rows                : 88
+distinct cases      : 11
+match_status values : ['not_verified_source_unavailable']
+observed values set : 0
+GATE                : OPEN (0 of 88 verified against official file bytes)
+
+==================================================================
+## [13] FINAL RELEASE BUILD (re-captured after all documentation was written)
+Capture time: 2026-10-23T12:27:37Z (UTC)
+
+$ python3 -m unittest discover -s tests
+Ran 129 tests in 1.320s
+
+OK
+
+$ python3 scripts/build_solver_bundle.py --outdir ../dist
+clinical-tp53-variant-adjudication-v1.1.0-solver-only.zip  bytes=8869  sha256=94fac499e84613850a874aafd803b75996553d61624110945a293748896960e5
+clinical-tp53-variant-adjudication-v1.1.0-developer.zip  bytes=95361  sha256=a5141f67002a6ab4e86fe8d0d5e75dd59f25a54f9afadbb99043db754f0f2454
+
+Determinism: rebuilt into a second directory and compared bytes
+  solver-only: BYTE-IDENTICAL across builds
+  developer: DIFFERS
+
+$ python3 scripts/audit_solver_bundle.py <solver-only.zip>
+archive : clinical-tp53-variant-adjudication-v1.1.0-solver-only.zip
+bytes   : 8869
+sha256  : 94fac499e84613850a874aafd803b75996553d61624110945a293748896960e5
+members : 8
+  - clinical-tp53-variant-adjudication-v1.1.0-solver/LICENSE_AND_ATTRIBUTION.md
+  - clinical-tp53-variant-adjudication-v1.1.0-solver/README_solver.md
+  - clinical-tp53-variant-adjudication-v1.1.0-solver/data/source_manifest.csv
+  - clinical-tp53-variant-adjudication-v1.1.0-solver/data/task_input.json
+  - clinical-tp53-variant-adjudication-v1.1.0-solver/docs/submission_template.json
+  - clinical-tp53-variant-adjudication-v1.1.0-solver/instruction.md
+  - clinical-tp53-variant-adjudication-v1.1.0-solver/schemas/submission.schema.json
+  - clinical-tp53-variant-adjudication-v1.1.0-solver/schemas/task_input.schema.json
+
+RESULT: PASS - no answer-key leakage detected, ZIP integrity verified
+exit=0
+
+Negative control: the developer archive contains the key and MUST fail the same audit
+exit=1 (1 expected)
+archive : clinical-tp53-variant-adjudication-v1.1.0-developer.zip
+bytes   : 95361
+sha256  : a5141f67002a6ab4e86fe8d0d5e75dd59f25a54f9afadbb99043db754f0f2454
+members : 44
+RESULT: FAIL (170 findings)
+
+ZIP integrity (testzip returns None when every member CRC is valid):
+   clinical-tp53-variant-adjudication-v1.1.0-developer.zip testzip = None  members = 44
+   clinical-tp53-variant-adjudication-v1.1.0-solver-only.zip testzip = None  members = 8
+
+END OF CAPTURED RUN.
